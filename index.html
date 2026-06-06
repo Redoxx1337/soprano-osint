@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOPRANO OSINT</title>
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --surface: #141414;
+            --border: #1f1f1f;
+            --text: #b0b0b0;
+            --accent: #7c3aed;
+            --accent2: #a78bfa;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        .sidebar {
+            position: fixed; left: 0; top: 0;
+            width: 220px; height: 100vh;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 20px 0; overflow-y: auto; z-index: 100;
+        }
+        .sidebar .logo {
+            padding: 0 18px 16px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        .sidebar .logo h1 {
+            font-size: 16px; font-weight: 700; letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .sidebar .logo span { font-size: 9px; color: #555; letter-spacing: 2px; }
+        .sidebar nav a {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 18px; color: #888; text-decoration: none;
+            font-size: 12px; border-left: 2px solid transparent; transition: all 0.2s;
+        }
+        .sidebar nav a:hover, .sidebar nav a.active {
+            color: #fff; background: rgba(124,58,237,0.1); border-left-color: var(--accent);
+        }
+        .main { margin-left: 220px; padding: 25px; min-height: 100vh; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h2 { font-size: 22px; font-weight: 600; color: #fff; }
+        .pill { display: inline-block; padding: 5px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; color: #888; margin-left: 10px; }
+        .pill b { color: var(--accent2); }
+        .search-bar { display: flex; gap: 8px; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; }
+        .search-bar input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: #fff; font-size: 14px; outline: none; font-family: inherit; }
+        .search-bar input::placeholder { color: #555; }
+        .search-bar select { padding: 12px; background: transparent; border: none; border-left: 1px solid var(--border); color: #fff; font-size: 12px; outline: none; cursor: pointer; font-family: inherit; }
+        .search-bar select option { background: var(--surface); color: #fff; }
+        .search-bar button { padding: 12px 24px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-weight: 600; font-size: 12px; cursor: pointer; letter-spacing: 1px; font-family: inherit; }
+        .search-bar button:hover { background: #6d28d9; }
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; cursor: pointer; transition: all 0.2s; }
+        .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .card .card-icon { font-size: 24px; margin-bottom: 8px; }
+        .card .card-title { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+        .card .card-desc { font-size: 11px; color: #666; }
+        .card .card-count { margin-top: 6px; font-size: 10px; color: var(--accent2); }
+        .result-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 8px; }
+        .result-item .result-file { font-size: 10px; color: var(--accent2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .result-item .result-data { font-size: 13px; color: #ccc; word-break: break-all; }
+        .empty-state { text-align: center; padding: 50px; color: #444; }
+        .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+        .services-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 16px; display: none; }
+        .services-section h3 { font-size: 11px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
+        .tag { display: inline-block; padding: 4px 10px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 5px; color: var(--accent2); font-size: 10px; margin: 2px; }
+        footer { text-align: center; padding: 20px; color: #333; font-size: 10px; border-top: 1px solid var(--border); margin-top: 30px; }
+        footer a { color: #555; }
+        @media (max-width: 768px) {
+            .sidebar { width: 50px; }
+            .sidebar .logo h1, .sidebar .logo span, .sidebar nav a span:not(.icon) { display: none; }
+            .sidebar nav a { justify-content: center; padding: 10px; }
+            .main { margin-left: 50px; padding: 12px; }
+            .search-bar { flex-direction: column; }
+            .cards-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <div class="logo"><h1>SOPRANO</h1><span>OSINT TOOL</span></div>
+    <nav>
+        <a href="#" class="active" onclick="showPage('search')"><span class="icon">🔍</span><span>Поиск</span></a>
+        <a href="#" onclick="showPage('phone')"><span class="icon">📞</span><span>Номер</span></a>
+        <a href="#" onclick="showPage('email')"><span class="icon">📧</span><span>Email</span></a>
+        <a href="#" onclick="showPage('fio')"><span class="icon">👤</span><span>ФИО</span></a>
+        <a href="#" onclick="showPage('ip')"><span class="icon">🌐</span><span>IP</span></a>
+        <a href="#" onclick="showPage('inn')"><span class="icon">💼</span><span>ИНН</span></a>
+        <a href="#" onclick="showPage('card')"><span class="icon">💳</span><span>Карта</span></a>
+        <a href="#" onclick="showPage('car')"><span class="icon">🚗</span><span>Авто</span></a>
+        <a href="#" onclick="showPage('address')"><span class="icon">🏠</span><span>Адрес</span></a>
+        <a href="#" onclick="showPage('social')"><span class="icon">🌍</span><span>Соцсети</span></a>
+        <a href="#" onclick="showPage('services')"><span class="icon">🛠</span><span>Сервисы</span></a>
+    </nav>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+    <div class="header">
+        <h2 id="pageTitle">🔍 Поиск по базам данных</h2>
+        <div>
+            <span class="pill">📁 Файлов: <b id="fileCount">0</b></span>
+            <span class="pill">🎯 Найдено: <b id="matchCount">0</b></span>
+        </div>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Введите запрос: имя, телефон, email, адрес, ИНН, IP..." autofocus>
+        <select id="searchType">
+            <option value="all">🔍 Все</option>
+            <option value="phone">📞 Номер</option>
+            <option value="email">📧 Email</option>
+            <option value="fio">👤 ФИО</option>
+            <option value="ip">🌐 IP</option>
+            <option value="inn">💼 ИНН</option>
+            <option value="card">💳 Карта</option>
+            <option value="car">🚗 Авто</option>
+            <option value="address">🏠 Адрес</option>
+        </select>
+        <button onclick="doSearch()">ИСКАТЬ</button>
+    </div>
+
+    <div class="cards-grid" id="quickCards">
+        <div class="card" onclick="setSearch('phone')"><div class="card-icon">📞</div><div class="card-title">Пробив номера</div><div class="card-desc">GetContact, Telegram, банки, доставка</div><div class="card-count">40+ сервисов</div></div>
+        <div class="card" onclick="setSearch('email')"><div class="card-icon">📧</div><div class="card-title">Поиск email</div><div class="card-desc">HIBP, DeHashed, соцсети, GitHub</div><div class="card-count">35+ сервисов</div></div>
+        <div class="card" onclick="setSearch('fio')"><div class="card-icon">👤</div><div class="card-title">Поиск ФИО</div><div class="card-desc">ВКонтакте, Госуслуги, ФНС, HH</div><div class="card-count">30+ сервисов</div></div>
+        <div class="card" onclick="setSearch('ip')"><div class="card-icon">🌐</div><div class="card-title">IP анализ</div><div class="card-desc">ip-api, Shodan, AbuseIPDB</div><div class="card-count">20+ сервисов</div></div>
+        <div class="card" onclick="setSearch('inn')"><div class="card-icon">💼</div><div class="card-title">Поиск ИНН</div><div class="card-desc">ФНС, Контур.Фокус, СПАРК</div><div class="card-count">20+ сервисов</div></div>
+        <div class="card" onclick="setSearch('card')"><div class="card-icon">💳</div><div class="card-title">BIN карт</div><div class="card-desc">Binlist, банки, маркетплейсы</div><div class="card-count">20+ сервисов</div></div>
+        <div class="card" onclick="setSearch('car')"><div class="card-icon">🚗</div><div class="card-title">Поиск авто</div><div class="card-desc">ГИБДД, Auto.ru, Дром</div><div class="card-count">15+ сервисов</div></div>
+        <div class="card" onclick="setSearch('address')"><div class="card-icon">🏠</div><div class="card-title">Поиск адреса</div><div class="card-desc">Росреестр, ФМС, 2ГИС</div><div class="card-count">20+ сервисов</div></div>
+    </div>
+
+    <div id="resultsContainer"></div>
+
+    <div class="services-section" id="servicesSection">
+        <h3>🛠 Сервисы для проверки</h3>
+        <div id="servicesTags"></div>
+    </div>
+
+    <footer>SOPRANO OSINT © 2025 | <a href="https://github.com/ТВОЙ-USER/soprano-osint">GitHub</a></footer>
+</div>
+
+<script>
+const SERVICES = {
+    phone: ["GetContact","NumBuster","TrueCaller","Sync.ME","Telegram","WhatsApp","Viber","Signal","ВКонтакте","Facebook","Instagram","Avito","Ozon","Wildberries","Delivery Club","Яндекс.Еда","Яндекс.Такси","Сбербанк","Тинькофф","Альфа-Банк","ВТБ","Госуслуги","СДЭК","Почта России","ЦИАН","HeadHunter","NumVerify","PhoneInfoga","Snusbase","LeakCheck","DeHashed","HIBP","Контакт","CallApp","Whoscall","Hiya","QIWI","ЮMoney","PayPal"],
+    email: ["Have I Been Pwned","DeHashed","Snusbase","LeakCheck","BreachDirectory","SpyCloud","EmailRep.io","Hunter.io","Snov.io","ВКонтакте","Facebook","Instagram","Twitter","LinkedIn","GitHub","Gravatar","Skype","Spotify","Apple ID","HeadHunter","SuperJob","Ozon","Wildberries","Avito","Pipl","Spokeo","Holehe","Mosint","WhatsMyName","Namechk","Intelligence X","GhostProject","WeLeakInfo","Leak-lookup"],
+    fio: ["ВКонтакте","Одноклассники","Facebook","Instagram","Twitter","LinkedIn","TikTok","Telegram","Госуслуги","ФНС","ФССП","Росреестр","ЗАГС","МВД","ГИБДД","ЦИК","HeadHunter","SuperJob","Работа.ру","Avito","Юла","ЦИАН","Auto.ru","Google","Яндекс","Social Searcher","PeekYou","Pipl","Spokeo","WebMii"],
+    ip: ["ip-api.com","ipinfo.io","ipapi.co","ipwhois.io","Shodan.io","Censys.io","AbuseIPDB.com","VirusTotal","Spur.us","proxycheck.io","SecurityTrails.com","AlienVault OTX","Greynoise.io","RIPE DB","ARIN","bgp.he.net","check-host.net","dnslytics.com","ip2location.com","ipdata.co"],
+    inn: ["ФНС (ЕГРЮЛ)","ФНС (ЕГРИП)","Федресурс","Арбитражные суды","Контур.Фокус","СПАРК","СБИС","Rusprofile.ru","List-Org.com","Zachestnyibiznes.ru","Audit-it.ru","Госзакупки","Росреестр","ФССП","Роспатент","Сбербанк","ВТБ","Тинькофф Бизнес","HeadHunter","2ГИС"],
+    card: ["Binlist.net","IINbase.com","BINcheck.io","Bincodes.com","BankBinList.ru","Сбербанк","ВТБ","Тинькофф","Альфа-Банк","Газпромбанк","Почта Банк","QIWI","ЮMoney","PayPal","Binance","Ozon","Wildberries","Delivery Club","Яндекс.Такси","Steam","PlayStation"],
+    car: ["ГИБДД","ГИБДД (штрафы)","ГИБДД (ДТП)","Auto.ru","Дром","Avito Авто","Автокод","Автотека","Vin.ru","Штрафы онлайн","Росреестр","Альфа-Страхование","Яндекс.Такси","Делимобиль","BelkaCar","BlaBlaCar","Парковки Москвы"],
+    address: ["Росреестр","ФМС","Госуслуги","ФНС","Почта России","СДЭК","Boxberry","DPD","Delivery Club","Яндекс.Еда","Самокат","Ozon","Wildberries","Яндекс.Такси","Делимобиль","2ГИС","Яндекс.Карты","Google Maps","OpenStreetMap","ЦИАН","Avito"],
+    social: ["ВКонтакте","Одноклассники","Facebook","Instagram","Twitter","LinkedIn","TikTok","Telegram","WhatsApp","Discord","GitHub","Reddit","YouTube","Twitch","Steam","Snapchat","Pinterest","OnlyFans","Social Searcher","Namechk","WhatsMyName","UserSearch","PeekYou","Pipl"],
+};
+
+let dbData = null;
+
+async function loadDB() {
+    try {
+        const res = await fetch('db_index.json');
+        dbData = await res.json();
+        document.getElementById('fileCount').textContent = dbData.files.length;
+    } catch (e) {
+        document.getElementById('fileCount').textContent = '0';
+    }
+}
+
+function doSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    const type = document.getElementById('searchType').value;
+    if (!query) return;
+
+    const container = document.getElementById('resultsContainer');
+    const servicesSection = document.getElementById('servicesSection');
+    const servicesTags = document.getElementById('servicesTags');
+    let matches = [];
+
+    if (dbData && dbData.files) {
+        const q = query.toLowerCase();
+        for (const file of dbData.files) {
+            for (const row of file.rows) {
+                if (row.toLowerCase().includes(q)) {
+                    matches.push({ file: file.name, data: row });
+                    if (matches.length >= 100) break;
+                }
+            }
+            if (matches.length >= 100) break;
+        }
+    }
+
+    document.getElementById('matchCount').textContent = matches.length;
+
+    if (SERVICES[type]) {
+        servicesSection.style.display = 'block';
+        servicesTags.innerHTML = SERVICES[type].map(s => `<span class="tag">${s}</span>`).join('');
+    }
+
+    if (matches.length > 0) {
+        container.innerHTML = `<h3 style="color:#fff;margin-bottom:12px">Результаты (${matches.length})</h3>` +
+            matches.slice(0, 50).map(m => `
+                <div class="result-item">
+                    <div class="result-file">📄 ${esc(m.file)}</div>
+                    <div class="result-data">${esc(m.data).substring(0, 500)}</div>
+                </div>
+            `).join('');
+    } else {
+        container.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>Ничего не найдено</p></div>';
+    }
+}
+
+function showPage(page) {
+    document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.remove('active'));
+    event.target.closest('a').classList.add('active');
+    const titles = {search:'🔍 Поиск',phone:'📞 Номер',email:'📧 Email',fio:'👤 ФИО',ip:'🌐 IP',inn:'💼 ИНН',card:'💳 Карта',car:'🚗 Авто',address:'🏠 Адрес',social:'🌍 Соцсети',services:'🛠 Сервисы'};
+    document.getElementById('pageTitle').textContent = titles[page]||'';
+    document.getElementById('searchType').value = page==='search'?'all':page;
+    document.getElementById('resultsContainer').innerHTML = '';
+    document.getElementById('servicesSection').style.display = 'none';
+    if (page === 'services') {
+        document.getElementById('quickCards').style.display = 'none';
+        let h = '<div class="cards-grid">';
+        for (const [t,s] of Object.entries(SERVICES)) {
+            const icons = {phone:'📞',email:'📧',fio:'👤',ip:'🌐',inn:'💼',card:'💳',car:'🚗',address:'🏠',social:'🌍'};
+            h += `<div class="card" onclick="setSearch('${t}')"><div class="card-icon">${icons[t]||'🛠'}</div><div class="card-title">${t.toUpperCase()}</div><div class="card-desc">${s.slice(0,5).join(', ')}...</div><div class="card-count">${s.length} сервисов</div></div>`;
+        }
+        h += '</div>';
+        document.getElementById('resultsContainer').innerHTML = h;
+    } else {
+        document.getElementById('quickCards').style.display = '';
+    }
+}
+
+function setSearch(type) {
+    document.getElementById('searchType').value = type;
+    document.getElementById('searchInput').focus();
+    showPage(type);
+}
+
+function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadDB();
+    document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key==='Enter') doSearch(); });
+});
+</script>
+</body>
+</html>
